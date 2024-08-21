@@ -1,4 +1,4 @@
-name: Setup RDP and Localtunnel
+name: Setup Minecraft Server and Expose with Ngrok
 
 on:
   push:
@@ -6,35 +6,38 @@ on:
       - main
 
 jobs:
-  setup_rdp_and_tunnel:
+  setup_minecraft_server:
     runs-on: windows-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install Node.js and Localtunnel
+    - name: Install Chocolatey
       run: |
-        choco install nodejs-lts
-        npm install -g localtunnel
+        @powershell -NoProfile -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))"
 
-    - name: Set up the PowerShell script
+    - name: Install Node.js
+      run: choco install nodejs-lts
+
+    - name: Download Ngrok and Minecraft Server
       run: |
-        echo 'npm install -g localtunnel' > setup_rdp_and_tunnel.ps1
-        echo 'Set-ItemProperty -Path ''HKLM:\System\CurrentControlSet\Control\Terminal Server'' -Name "fDenyTSConnections" -Value 0' >> setup_rdp_and_tunnel.ps1
-        echo 'Enable-NetFirewallRule -DisplayGroup "Remote Desktop"' >> setup_rdp_and_tunnel.ps1
-        echo '$localtunnelProcess = Start-Process -NoNewWindow -FilePath "lt" -ArgumentList "--port 3389" -PassThru' >> setup_rdp_and_tunnel.ps1
-        echo 'Start-Sleep -Seconds 10' >> setup_rdp_and_tunnel.ps1
-        echo '$publicUrl = (Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels").tunnels[0].public_url' >> setup_rdp_and_tunnel.ps1
-        echo '$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Ethernet").IPAddress' >> setup_rdp_and_tunnel.ps1
-        echo 'if (-not $ipAddress) {$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress}' >> setup_rdp_and_tunnel.ps1
-        echo '$username = $env:USERNAME' >> setup_rdp_and_tunnel.ps1
-        echo '$hostname = $env:COMPUTERNAME' >> setup_rdp_and_tunnel.ps1
-        echo 'Write-Output "RDP is enabled on this machine."' >> setup_rdp_and_tunnel.ps1
-        echo 'Write-Output "Public URL: $publicUrl"' >> setup_rdp_and_tunnel.ps1
-        echo 'Write-Output "Local IP Address: $ipAddress"' >> setup_rdp_and_tunnel.ps1
-        echo 'Write-Output "Username: $username"' >> setup_rdp_and_tunnel.ps1
-        echo 'Write-Output "Hostname: $hostname"' >> setup_rdp_and_tunnel.ps1
+        echo 'Downloading and installing Ngrok and Minecraft Bedrock server...' > setup_minecraft_server.ps1
+        echo 'Invoke-WebRequest -Uri "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip" -OutFile "$env:TEMP\ngrok.zip"' >> setup_minecraft_server.ps1
+        echo 'Expand-Archive -Path "$env:TEMP\ngrok.zip" -DestinationPath $env:TEMP' >> setup_minecraft_server.ps1
+        echo 'Invoke-WebRequest -Uri "https://minecraft.net/download/server/bedrock" -OutFile "$env:TEMP\minecraft-bedrock-server.zip"' >> setup_minecraft_server.ps1
+        echo 'Expand-Archive -Path "$env:TEMP\minecraft-bedrock-server.zip" -DestinationPath "$env:TEMP\minecraft-bedrock"' >> setup_minecraft_server.ps1
+        echo 'Start-Process -FilePath "$env:TEMP\ngrok.exe" -ArgumentList "authtoken <YOUR_NGROK_AUTH_TOKEN>" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
+        echo 'Start-Process -FilePath "$env:TEMP\minecraft-bedrock\bedrock_server.exe" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
+        echo 'Start-Sleep -Seconds 30' >> setup_minecraft_server.ps1
+        echo 'Start-Process -FilePath "$env:TEMP\ngrok.exe" -ArgumentList "tcp 19132" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
+        echo 'Start-Sleep -Seconds 10' >> setup_minecraft_server.ps1
+        echo '$ngrokApiUrl = "http://localhost:4040/api/tunnels"' >> setup_minecraft_server.ps1
+        echo '$ngrokTunnel = (Invoke-RestMethod -Uri $ngrokApiUrl).tunnels[0].public_url' >> setup_minecraft_server.ps1
+        echo 'Write-Output "Minecraft Bedrock server is running."' >> setup_minecraft_server.ps1
+        echo 'Write-Output "Join the server using the following URL: $ngrokTunnel"' >> setup_minecraft_server.ps1
 
-    - name: Run RDP and Tunnel Setup Script
-      run: PowerShell -ExecutionPolicy Bypass -File ./setup_rdp_and_tunnel.ps1
+    - name: Run Minecraft Server Setup Script
+      run: PowerShell -ExecutionPolicy Bypass -File ./setup_minecraft_server.ps1
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
