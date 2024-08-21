@@ -23,11 +23,11 @@ jobs:
       shell: pwsh
       run: choco install nodejs-lts -y
 
-    - name: Download Ngrok and Minecraft Server
+    - name: Download and Setup Minecraft Server
       shell: pwsh
       run: |
         # Define paths and URLs
-        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip"
+        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip" # Example URL; verify and update
         $ngrokPath = "$env:TEMP\ngrok.zip"
         $ngrokExePath = "$env:TEMP\ngrok.exe"
         $serverPath = "$env:TEMP\minecraft-bedrock"
