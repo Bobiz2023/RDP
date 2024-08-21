@@ -1,4 +1,4 @@
-name: Setup Minecraft Server and Expose with Ngrok
+name: Setup Kali Linux with Ngrok for RDP
 
 on:
   push:
@@ -6,70 +6,51 @@ on:
       - main
 
 jobs:
-  setup_minecraft_server:
-    runs-on: windows-latest
+  setup_kali_ngrok:
+    runs-on: [self-hosted, kali-linux]  # Adjust this based on your self-hosted runner configuration
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install Chocolatey
-      shell: pwsh
-      run: |
-        Set-ExecutionPolicy Bypass -Scope Process -Force
-        iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-
-    - name: Install Node.js
-      shell: pwsh
-      run: choco install nodejs-lts -y
-
-    - name: Download and Setup Minecraft Server
-      shell: pwsh
+    - name: Install Ngrok
       run: |
         # Define paths and URLs
-        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip" # Example URL; verify and update
-        $ngrokPath = "$env:TEMP\ngrok.zip"
-        $ngrokExePath = "$env:TEMP\ngrok.exe"
-        $serverPath = "$env:TEMP\minecraft-bedrock"
-        $serverZipUrl = "https://minecraft.net/download/server/bedrock"
-        $serverZipPath = "$env:TEMP\minecraft-bedrock-server.zip"
-        $ngrokAuthToken = $env:NGROK_AUTH_TOKEN # Secret from GitHub Secrets
+        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-linux-amd64.zip" # Latest Ngrok URL for Linux
+        $ngrokPath = "$HOME/ngrok.zip"
+        $ngrokExePath = "$HOME/ngrok"
 
         # Download and install Ngrok
-        Invoke-WebRequest -Uri $ngrokUrl -OutFile $ngrokPath
-        Expand-Archive -Path $ngrokPath -DestinationPath $env:TEMP
+        wget $ngrokUrl -O $ngrokPath
+        unzip $ngrokPath -d $HOME
 
         # Configure Ngrok with the auth token
-        Start-Process -FilePath $ngrokExePath -ArgumentList "authtoken $ngrokAuthToken" -NoNewWindow -Wait
+        ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-        # Download and extract Minecraft Bedrock server
-        Invoke-WebRequest -Uri $serverZipUrl -OutFile $serverZipPath
-        Expand-Archive -Path $serverZipPath -DestinationPath $serverPath
+    - name: Setup RDP
+      run: |
+        # Install xrdp for RDP access
+        sudo apt-get update
+        sudo apt-get install -y xrdp
 
-        # Start the Minecraft Bedrock server
-        Start-Process -FilePath "$serverPath\bedrock_server.exe" -NoNewWindow -PassThru
+        # Start the xrdp service
+        sudo systemctl start xrdp
+        sudo systemctl enable xrdp
 
-        # Wait for server to start
-        Start-Sleep -Seconds 30
+        # Configure RDP access (optional configurations)
+        sudo ufw allow 3389/tcp
 
-        # Start Ngrok to tunnel Minecraft server port (19132)
-        Start-Process -FilePath $ngrokExePath -ArgumentList "tcp 19132" -NoNewWindow -PassThru
+    - name: Start Ngrok Tunnel for RDP
+      run: |
+        # Start Ngrok to tunnel RDP port (3389)
+        ngrok tcp 3389 &
 
-        # Wait for Ngrok to establish tunnel
-        Start-Sleep -Seconds 10
+        # Wait for Ngrok to establish the tunnel
+        sleep 10
 
         # Retrieve Ngrok public URL
-        $ngrokApiUrl = "http://localhost:4040/api/tunnels"
-        $ngrokTunnel = (Invoke-RestMethod -Uri $ngrokApiUrl).tunnels[0].public_url
+        ngrokApiUrl="http://localhost:4040/api/tunnels"
+        ngrokTunnel=$(curl -s $ngrokApiUrl | jq -r '.tunnels[0].public_url')
 
-        # Output the server and Ngrok URL
-        Write-Output "Minecraft Bedrock server is running."
-        Write-Output "Join the server using the following URL: $ngrokTunnel"
-
-    - name: Output Ngrok URL
-      shell: pwsh
-      run: |
-        Write-Output "Minecraft Bedrock server is running."
-        Write-Output "Join the server using the following URL: $ngrokTunnel"
-      env:
-        ngrokTunnel: ${{ steps.setup_minecraft_server.outputs.ngrokTunnel }}
+        # Output the Ngrok URL for RDP
+        echo "Ngrok public URL for RDP access: $ngrokTunnel"
