@@ -14,30 +14,62 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Install Chocolatey
+      shell: pwsh
       run: |
-        @powershell -NoProfile -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))"
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
     - name: Install Node.js
-      run: choco install nodejs-lts
+      shell: pwsh
+      run: choco install nodejs-lts -y
 
     - name: Download Ngrok and Minecraft Server
+      shell: pwsh
       run: |
-        echo 'Downloading and installing Ngrok and Minecraft Bedrock server...' > setup_minecraft_server.ps1
-        echo 'Invoke-WebRequest -Uri "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip" -OutFile "$env:TEMP\ngrok.zip"' >> setup_minecraft_server.ps1
-        echo 'Expand-Archive -Path "$env:TEMP\ngrok.zip" -DestinationPath $env:TEMP' >> setup_minecraft_server.ps1
-        echo 'Invoke-WebRequest -Uri "https://minecraft.net/download/server/bedrock" -OutFile "$env:TEMP\minecraft-bedrock-server.zip"' >> setup_minecraft_server.ps1
-        echo 'Expand-Archive -Path "$env:TEMP\minecraft-bedrock-server.zip" -DestinationPath "$env:TEMP\minecraft-bedrock"' >> setup_minecraft_server.ps1
-        echo 'Start-Process -FilePath "$env:TEMP\ngrok.exe" -ArgumentList "authtoken <YOUR_NGROK_AUTH_TOKEN>" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
-        echo 'Start-Process -FilePath "$env:TEMP\minecraft-bedrock\bedrock_server.exe" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
-        echo 'Start-Sleep -Seconds 30' >> setup_minecraft_server.ps1
-        echo 'Start-Process -FilePath "$env:TEMP\ngrok.exe" -ArgumentList "tcp 19132" -NoNewWindow -PassThru' >> setup_minecraft_server.ps1
-        echo 'Start-Sleep -Seconds 10' >> setup_minecraft_server.ps1
-        echo '$ngrokApiUrl = "http://localhost:4040/api/tunnels"' >> setup_minecraft_server.ps1
-        echo '$ngrokTunnel = (Invoke-RestMethod -Uri $ngrokApiUrl).tunnels[0].public_url' >> setup_minecraft_server.ps1
-        echo 'Write-Output "Minecraft Bedrock server is running."' >> setup_minecraft_server.ps1
-        echo 'Write-Output "Join the server using the following URL: $ngrokTunnel"' >> setup_minecraft_server.ps1
+        # Define paths and URLs
+        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-windows-amd64.zip"
+        $ngrokPath = "$env:TEMP\ngrok.zip"
+        $ngrokExePath = "$env:TEMP\ngrok.exe"
+        $serverPath = "$env:TEMP\minecraft-bedrock"
+        $serverZipUrl = "https://minecraft.net/download/server/bedrock"
+        $serverZipPath = "$env:TEMP\minecraft-bedrock-server.zip"
+        $ngrokAuthToken = $env:NGROK_AUTH_TOKEN # Secret from GitHub Secrets
 
-    - name: Run Minecraft Server Setup Script
-      run: PowerShell -ExecutionPolicy Bypass -File ./setup_minecraft_server.ps1
+        # Download and install Ngrok
+        Invoke-WebRequest -Uri $ngrokUrl -OutFile $ngrokPath
+        Expand-Archive -Path $ngrokPath -DestinationPath $env:TEMP
+
+        # Configure Ngrok with the auth token
+        Start-Process -FilePath $ngrokExePath -ArgumentList "authtoken $ngrokAuthToken" -NoNewWindow -Wait
+
+        # Download and extract Minecraft Bedrock server
+        Invoke-WebRequest -Uri $serverZipUrl -OutFile $serverZipPath
+        Expand-Archive -Path $serverZipPath -DestinationPath $serverPath
+
+        # Start the Minecraft Bedrock server
+        Start-Process -FilePath "$serverPath\bedrock_server.exe" -NoNewWindow -PassThru
+
+        # Wait for server to start
+        Start-Sleep -Seconds 30
+
+        # Start Ngrok to tunnel Minecraft server port (19132)
+        Start-Process -FilePath $ngrokExePath -ArgumentList "tcp 19132" -NoNewWindow -PassThru
+
+        # Wait for Ngrok to establish tunnel
+        Start-Sleep -Seconds 10
+
+        # Retrieve Ngrok public URL
+        $ngrokApiUrl = "http://localhost:4040/api/tunnels"
+        $ngrokTunnel = (Invoke-RestMethod -Uri $ngrokApiUrl).tunnels[0].public_url
+
+        # Output the server and Ngrok URL
+        Write-Output "Minecraft Bedrock server is running."
+        Write-Output "Join the server using the following URL: $ngrokTunnel"
+
+    - name: Output Ngrok URL
+      shell: pwsh
+      run: |
+        Write-Output "Minecraft Bedrock server is running."
+        Write-Output "Join the server using the following URL: $ngrokTunnel"
       env:
-        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        ngrokTunnel: ${{ steps.setup_minecraft_server.outputs.ngrokTunnel }}
