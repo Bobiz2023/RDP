@@ -1,25 +1,31 @@
-name: CI
+name: Install and Run AnyDesk
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
-
-    runs-on: windows-latest
+  install_and_run_anydesk:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Download
-      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-    - name: Extract
-      run: Expand-Archive ngrok.zip
-    - name: Auth
-      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
-      env:
-        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-    - name: Enable TS
-      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
-    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
-    - name: Create Tunnel
-      run: .\ngrok\ngrok.exe tcp 3389
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up the script
+      run: |
+        echo '#!/bin/bash' > install_anydesk.sh
+        echo 'sudo apt-get update -y' >> install_anydesk.sh
+        echo 'wget -qO - https://keys.anydesk.com/repos/DEB-GPG-KEY | sudo apt-key add -' >> install_anydesk.sh
+        echo 'echo "deb http://deb.anydesk.com/ all main" | sudo tee /etc/apt/sources.list.d/anydesk.list' >> install_anydesk.sh
+        echo 'sudo apt-get update -y' >> install_anydesk.sh
+        echo 'sudo apt-get install -y anydesk' >> install_anydesk.sh
+        echo 'anydesk &' >> install_anydesk.sh
+        echo 'sleep 5' >> install_anydesk.sh
+        echo 'anydesk_id=$(anydesk --get-id)' >> install_anydesk.sh
+        echo 'echo "AnyDesk ID: $anydesk_id"' >> install_anydesk.sh
+        chmod +x install_anydesk.sh
+
+    - name: Run AnyDesk Script
+      run: ./install_anydesk.sh
