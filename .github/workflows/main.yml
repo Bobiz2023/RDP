@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
     - name: Install Dependencies
       run: |
         sudo apt-get update
@@ -21,7 +18,7 @@ jobs:
     - name: Download Minecraft Bedrock Server 1.10
       run: |
         # Define paths and URLs
-        SERVER_URL="https://minecraft.azureedge.net/bin-linux/bedrock-server-1.10.0.7.zip"  # Replace with actual URL
+        SERVER_URL="https://minecraft.azureedge.net/bin-linux/bedrock-server-1.10.0.7.zip"
         SERVER_ZIP="bedrock-server-1.10.0.7.zip"
         SERVER_PATH="/home/runner/minecraft-bedrock"
 
@@ -36,7 +33,7 @@ jobs:
         cd $SERVER_PATH
 
         # Start the Minecraft Bedrock server in the background
-        nohup ./bedrock_server > server.log 2>&1 &
+        nohup ./bedrock_server > /dev/null 2>&1 &
 
     - name: Retrieve Public IP Address
       run: |
@@ -46,8 +43,3 @@ jobs:
         # Retrieve and print the public IP address
         PUBLIC_IP=$(curl -s ifconfig.me)
         echo "Public IP Address: $PUBLIC_IP"
-
-    - name: Output Minecraft Server Status
-      run: |
-        # Print the last few lines of the server log for status
-        tail -n 10 $SERVER_PATH/server.log
