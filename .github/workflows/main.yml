@@ -1,4 +1,4 @@
-name: Setup Kali Linux with Ngrok for RDP
+name: Setup Minecraft Bedrock Server 1.10 and Retrieve Public IP
 
 on:
   push:
@@ -6,51 +6,48 @@ on:
       - main
 
 jobs:
-  setup_kali_ngrok:
-    runs-on: [self-hosted, kali-linux]  # Adjust this based on your self-hosted runner configuration
+  setup_minecraft_server:
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install Ngrok
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget unzip curl
+
+    - name: Download Minecraft Bedrock Server 1.10
       run: |
         # Define paths and URLs
-        $ngrokUrl = "https://bin.equinox.io/c/4b0ac842e8e3/ngrok-stable-linux-amd64.zip" # Latest Ngrok URL for Linux
-        $ngrokPath = "$HOME/ngrok.zip"
-        $ngrokExePath = "$HOME/ngrok"
+        SERVER_URL="https://minecraft.azureedge.net/bin-linux/bedrock-server-1.10.0.7.zip"  # Replace with actual URL
+        SERVER_ZIP="bedrock-server-1.10.0.7.zip"
+        SERVER_PATH="/home/runner/minecraft-bedrock"
 
-        # Download and install Ngrok
-        wget $ngrokUrl -O $ngrokPath
-        unzip $ngrokPath -d $HOME
+        # Download and extract Minecraft Bedrock server
+        wget $SERVER_URL -O $SERVER_ZIP
+        mkdir -p $SERVER_PATH
+        unzip $SERVER_ZIP -d $SERVER_PATH
 
-        # Configure Ngrok with the auth token
-        ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Setup RDP
+    - name: Start Minecraft Bedrock Server
       run: |
-        # Install xrdp for RDP access
-        sudo apt-get update
-        sudo apt-get install -y xrdp
+        # Navigate to the server directory
+        cd $SERVER_PATH
 
-        # Start the xrdp service
-        sudo systemctl start xrdp
-        sudo systemctl enable xrdp
+        # Start the Minecraft Bedrock server in the background
+        nohup ./bedrock_server > server.log 2>&1 &
 
-        # Configure RDP access (optional configurations)
-        sudo ufw allow 3389/tcp
-
-    - name: Start Ngrok Tunnel for RDP
+    - name: Retrieve Public IP Address
       run: |
-        # Start Ngrok to tunnel RDP port (3389)
-        ngrok tcp 3389 &
-
-        # Wait for Ngrok to establish the tunnel
+        # Wait for a short period to ensure the server has started
         sleep 10
+        
+        # Retrieve and print the public IP address
+        PUBLIC_IP=$(curl -s ifconfig.me)
+        echo "Public IP Address: $PUBLIC_IP"
 
-        # Retrieve Ngrok public URL
-        ngrokApiUrl="http://localhost:4040/api/tunnels"
-        ngrokTunnel=$(curl -s $ngrokApiUrl | jq -r '.tunnels[0].public_url')
-
-        # Output the Ngrok URL for RDP
-        echo "Ngrok public URL for RDP access: $ngrokTunnel"
+    - name: Output Minecraft Server Status
+      run: |
+        # Print the last few lines of the server log for status
+        tail -n 10 $SERVER_PATH/server.log
