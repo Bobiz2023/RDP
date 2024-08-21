@@ -1,4 +1,4 @@
-name: Enable RDP and Retrieve Login Info
+name: Setup RDP and Localtunnel
 
 on:
   push:
@@ -6,26 +6,35 @@ on:
       - main
 
 jobs:
-  enable_rdp:
+  setup_rdp_and_tunnel:
     runs-on: windows-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Install Node.js and Localtunnel
+      run: |
+        choco install nodejs-lts
+        npm install -g localtunnel
+
     - name: Set up the PowerShell script
       run: |
-        echo 'Set-ItemProperty -Path ''HKLM:\System\CurrentControlSet\Control\Terminal Server'' -Name "fDenyTSConnections" -Value 0' > enable_rdp.ps1
-        echo 'Enable-NetFirewallRule -DisplayGroup "Remote Desktop"' >> enable_rdp.ps1
-        echo '$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Ethernet").IPAddress' >> enable_rdp.ps1
-        echo 'if (-not $ipAddress) {$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress}' >> enable_rdp.ps1
-        echo '$username = $env:USERNAME' >> enable_rdp.ps1
-        echo '$hostname = $env:COMPUTERNAME' >> enable_rdp.ps1
-        echo 'Write-Output "RDP is enabled on this machine."' >> enable_rdp.ps1
-        echo 'Write-Output "Use the following login information to connect via RDP:"' >> enable_rdp.ps1
-        echo 'Write-Output "IP Address: $ipAddress"' >> enable_rdp.ps1
-        echo 'Write-Output "Username: $username"' >> enable_rdp.ps1
-        echo 'Write-Output "Hostname: $hostname"' >> enable_rdp.ps1
+        echo 'npm install -g localtunnel' > setup_rdp_and_tunnel.ps1
+        echo 'Set-ItemProperty -Path ''HKLM:\System\CurrentControlSet\Control\Terminal Server'' -Name "fDenyTSConnections" -Value 0' >> setup_rdp_and_tunnel.ps1
+        echo 'Enable-NetFirewallRule -DisplayGroup "Remote Desktop"' >> setup_rdp_and_tunnel.ps1
+        echo '$localtunnelProcess = Start-Process -NoNewWindow -FilePath "lt" -ArgumentList "--port 3389" -PassThru' >> setup_rdp_and_tunnel.ps1
+        echo 'Start-Sleep -Seconds 10' >> setup_rdp_and_tunnel.ps1
+        echo '$publicUrl = (Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels").tunnels[0].public_url' >> setup_rdp_and_tunnel.ps1
+        echo '$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Ethernet").IPAddress' >> setup_rdp_and_tunnel.ps1
+        echo 'if (-not $ipAddress) {$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "Wi-Fi").IPAddress}' >> setup_rdp_and_tunnel.ps1
+        echo '$username = $env:USERNAME' >> setup_rdp_and_tunnel.ps1
+        echo '$hostname = $env:COMPUTERNAME' >> setup_rdp_and_tunnel.ps1
+        echo 'Write-Output "RDP is enabled on this machine."' >> setup_rdp_and_tunnel.ps1
+        echo 'Write-Output "Public URL: $publicUrl"' >> setup_rdp_and_tunnel.ps1
+        echo 'Write-Output "Local IP Address: $ipAddress"' >> setup_rdp_and_tunnel.ps1
+        echo 'Write-Output "Username: $username"' >> setup_rdp_and_tunnel.ps1
+        echo 'Write-Output "Hostname: $hostname"' >> setup_rdp_and_tunnel.ps1
 
-    - name: Run RDP Script
-      run: PowerShell -ExecutionPolicy Bypass -File ./enable_rdp.ps1
+    - name: Run RDP and Tunnel Setup Script
+      run: PowerShell -ExecutionPolicy Bypass -File ./setup_rdp_and_tunnel.ps1
