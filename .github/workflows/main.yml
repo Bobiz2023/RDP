@@ -7,25 +7,23 @@ on:
 
 jobs:
   install_and_run_anydesk:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up the script
+    - name: Set up the PowerShell script
       run: |
-        echo '#!/bin/bash' > install_anydesk.sh
-        echo 'sudo apt-get update -y' >> install_anydesk.sh
-        echo 'wget -qO - https://keys.anydesk.com/repos/DEB-GPG-KEY | sudo apt-key add -' >> install_anydesk.sh
-        echo 'echo "deb http://deb.anydesk.com/ all main" | sudo tee /etc/apt/sources.list.d/anydesk.list' >> install_anydesk.sh
-        echo 'sudo apt-get update -y' >> install_anydesk.sh
-        echo 'sudo apt-get install -y anydesk' >> install_anydesk.sh
-        echo 'anydesk &' >> install_anydesk.sh
-        echo 'sleep 5' >> install_anydesk.sh
-        echo 'anydesk_id=$(anydesk --get-id)' >> install_anydesk.sh
-        echo 'echo "AnyDesk ID: $anydesk_id"' >> install_anydesk.sh
-        chmod +x install_anydesk.sh
+        echo '$installerUrl = "https://download.anydesk.com/AnyDesk.exe"' > install_anydesk.ps1
+        echo '$installerPath = "$env:TEMP\AnyDesk.exe"' >> install_anydesk.ps1
+        echo 'Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath' >> install_anydesk.ps1
+        echo 'Start-Process -FilePath $installerPath -ArgumentList "/install /silent" -Wait' >> install_anydesk.ps1
+        echo 'Start-Process -FilePath "C:\Program Files (x86)\AnyDesk\AnyDesk.exe"' >> install_anydesk.ps1
+        echo 'Start-Sleep -Seconds 5' >> install_anydesk.ps1
+        echo '$logPath = "$env:PROGRAMDATA\AnyDesk\ad_svc.trace"' >> install_anydesk.ps1
+        echo '$anydeskId = Select-String -Path $logPath -Pattern ".*my anydesk address.*" | ForEach-Object { $_.Matches.Groups[0].Value } | Select-String -Pattern "\d{9}" | Select-Object -First 1' >> install_anydesk.ps1
+        echo 'Write-Output "AnyDesk ID: $anydeskId"' >> install_anydesk.ps1
 
     - name: Run AnyDesk Script
-      run: ./install_anydesk.sh
+      run: PowerShell -ExecutionPolicy Bypass -File ./install_anydesk.ps1
