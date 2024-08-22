@@ -1,45 +1,43 @@
-name: Setup Minecraft Bedrock Server 1.10 and Retrieve Public IP
+name: Set up Chrome Remote Desktop
 
-on:
-  push:
-    branches:
-      - main
+on: [push]
 
 jobs:
-  setup_minecraft_server:
+  setup_chrome_remote_desktop:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install Dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget unzip curl
+        sudo apt-get install -y wget curl unzip
 
-    - name: Download Minecraft Bedrock Server 1.10
+    - name: Install Google Chrome
       run: |
-        # Define paths and URLs
-        SERVER_URL="https://minecraft.azureedge.net/bin-linux/bedrock-server-1.10.0.7.zip"
-        SERVER_ZIP="bedrock-server-1.10.0.7.zip"
-        SERVER_PATH="/home/runner/minecraft-bedrock"
+        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
 
-        # Download and extract Minecraft Bedrock server
-        wget $SERVER_URL -O $SERVER_ZIP
-        mkdir -p $SERVER_PATH
-        unzip $SERVER_ZIP -d $SERVER_PATH
-
-    - name: Start Minecraft Bedrock Server
+    - name: Install Chrome Remote Desktop
       run: |
-        # Navigate to the server directory
-        cd $SERVER_PATH
+        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+        sudo apt-get install -y ./chrome-remote-desktop_current_amd64.deb
 
-        # Start the Minecraft Bedrock server in the background
-        nohup ./bedrock_server > /dev/null 2>&1 &
-
-    - name: Retrieve Public IP Address
+    - name: Set up Chrome Remote Desktop
       run: |
-        # Wait for a short period to ensure the server has started
-        sleep 10
-        
-        # Retrieve and print the public IP address
-        PUBLIC_IP=$(curl -s ifconfig.me)
-        echo "Public IP Address: $PUBLIC_IP"
+        # Create a new virtual display for CRD
+        sudo bash -c 'echo "exec /usr/sbin/lightdm-session \"\${@}\"" > /etc/chrome-remote-desktop-session'
+        sudo systemctl enable chrome-remote-desktop@$USER
+
+        # Start Chrome Remote Desktop service
+        sudo systemctl start chrome-remote-desktop@$USER
+
+    - name: Instructions for Connection
+      run: |
+        echo "Chrome Remote Desktop has been set up. To connect, follow these steps:"
+        echo "1. Go to https://remotedesktop.google.com/headless and select 'Set up another computer'."
+        echo "2. Copy the command provided by Google Remote Desktop and run it here in the GitHub Actions runner using the next step."
+
+    - name: Execute Chrome Remote Desktop command
+      run: |
+        # Replace the below command with the one you get from the Chrome Remote Desktop setup page
+        echo "DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="4/0AQlEd8yL7Gsv2r4pPH22VlmE3rqbGh-Qf4b3VbzkH1cNBG5CsbVJ5yOYAowlNQUQq4_YlA" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$(hostname)"
