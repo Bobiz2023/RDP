@@ -1,43 +1,21 @@
-name: Set up Chrome Remote Desktop
+name: Windows - LiteManager
 
-on: [push]
+on:
+  workflow_dispatch:
 
 jobs:
-  setup_chrome_remote_desktop:
-    runs-on: ubuntu-latest
-
+  build:
+    name: Start Building...
+    runs-on: windows-latest
+    
     steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget curl unzip
+      - name: Downloading & Installing Essentials
+        run: |
+          Invoke-WebRequest -Uri "https://gitlab.com/chamod12/lm_win-10_github_rdp/-/raw/main/Downloads.bat" -OutFile "Downloads.bat"
+          cmd /c Downloads.bat
 
-    - name: Install Google Chrome
-      run: |
-        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+      - name: Connect to LiteManager
+        run: cmd /c show.bat
 
-    - name: Install Chrome Remote Desktop
-      run: |
-        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-        sudo apt-get install -y ./chrome-remote-desktop_current_amd64.deb
-
-    - name: Set up Chrome Remote Desktop
-      run: |
-        # Create a new virtual display for CRD
-        sudo bash -c 'echo "exec /usr/sbin/lightdm-session \"\${@}\"" > /etc/chrome-remote-desktop-session'
-        sudo systemctl enable chrome-remote-desktop@$USER
-
-        # Start Chrome Remote Desktop service
-        sudo systemctl start chrome-remote-desktop@$USER
-
-    - name: Instructions for Connection
-      run: |
-        echo "Chrome Remote Desktop has been set up. To connect, follow these steps:"
-        echo "1. Go to https://remotedesktop.google.com/headless and select 'Set up another computer'."
-        echo "2. Copy the command provided by Google Remote Desktop and run it here in the GitHub Actions runner using the next step."
-
-    - name: Execute Chrome Remote Desktop command
-      run: |
-        # Replace the below command with the one you get from the Chrome Remote Desktop setup page
-        echo "DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="4/0AQlEd8yL7Gsv2r4pPH22VlmE3rqbGh-Qf4b3VbzkH1cNBG5CsbVJ5yOYAowlNQUQq4_YlA" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$(hostname)"
+      - name: Time Counter
+        run: cmd /c loop.bat
